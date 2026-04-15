@@ -5,7 +5,7 @@ export default async function handler(req, res) {
     const { name, email, phone, attending, guests, allergies, additionalAllergies } = req.body;
 
     // For testing, skip sending if credentials not set
-    if (process.env.EMAIL_USER === 'olamidekosile@gmail.com' || !process.env.EMAIL_USER) {
+    if (process.env.EMAIL_USER === 'yourgmail@gmail.com' || !process.env.EMAIL_USER) {
       console.log('Test mode: RSVP data:', { name, email, phone, attending, guests, allergies, additionalAllergies });
       res.status(200).json({ message: 'RSVP received (test mode)!' });
       return;
@@ -22,7 +22,7 @@ export default async function handler(req, res) {
 
     const mailOptions = {
       from: process.env.EMAIL_USER,
-      to: 'olamidekosile@gmail.com', // Replace with organizer's email
+      to: process.env.ORGANIZER_EMAIL || 'kosileolamide@gmail.com', // Organizer's email
       subject: 'New RSVP for Pastor\'s Birthday',
       text: `Name: ${name}\nEmail: ${email}\nPhone: ${phone}\nAttending: ${attending}\nGuests: ${guests}\nAllergies: ${allergies.join(', ')}\nAdditional Allergies: ${additionalAllergies}`,
     };

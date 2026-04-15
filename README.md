@@ -13,6 +13,7 @@ A professional Next.js app for RSVPing to Pastor's Birthday Celebration.
    ```
    EMAIL_USER=yourgmail@gmail.com
    EMAIL_PASS=yourapppassword
+   ORGANIZER_EMAIL=organizer@example.com
    ```
    (Get app password from Gmail settings > Security > 2-Step Verification > App passwords)
 3. Run locally: `npm run dev`
