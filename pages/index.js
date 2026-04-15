@@ -1,184 +1,240 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import Head from 'next/head';
+import Hero from '../components/Hero';
+import RSVPForm from '../components/RSVPForm';
+import AdminLogin from '../components/AdminLogin';
+import AdminPanel from '../components/AdminPanel';
 
+/**
+ * Main RSVP Application Component
+ * Features: Professional design, animations, admin panel, database storage
+ */
 export default function Home() {
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    attending: '',
-    guests: '',
-    allergies: [],
-    additionalAllergies: '',
-  });
+  // State management
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [adminPassword, setAdminPassword] = useState('');
+  const [rsvps, setRsvps] = useState([]);
+  const [showAdminForm, setShowAdminForm] = useState(false);
   const [message, setMessage] = useState('');
+  const [messageType, setMessageType] = useState(''); // 'success' or 'error'
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
-  const commonAllergies = ['Peanuts', 'Tree Nuts', 'Dairy', 'Eggs', 'Wheat', 'Soy', 'Shellfish', 'Fish'];
+  /**
+   * Initialize admin state on component mount
+   */
+  useEffect(() => {
+    const adminLoggedIn = localStorage.getItem('adminLoggedIn');
+    if (adminLoggedIn === 'true') {
+      setIsAdmin(true);
+      fetchRSVPs();
+    }
+  }, []);
 
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+  /**
+   * Fetch all RSVPs from the API
+   */
+  const fetchRSVPs = async () => {
+    try {
+      setError(null);
+      const response = await fetch('/api/admin');
+      const data = await response.json();
+      if (data.rsvps) {
+        setRsvps(data.rsvps);
+      }
+    } catch (error) {
+      console.error('Error fetching RSVPs:', error);
+      setError('Failed to fetch RSVPs. Please try again.');
+    }
   };
 
-  const handleAllergyChange = (allergy) => {
-    setFormData(prev => ({
-      ...prev,
-      allergies: prev.allergies.includes(allergy)
-        ? prev.allergies.filter(a => a !== allergy)
-        : [...prev.allergies, allergy]
-    }));
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  /**
+   * Handle RSVP form submission
+   */
+  const handleRSVPSubmit = async (formData) => {
     setLoading(true);
+    setMessage('');
+    setError(null);
+
     try {
       const response = await fetch('/api/rsvp', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
       });
+
       const data = await response.json();
-      setMessage(data.message);
+      
       if (response.ok) {
-        setFormData({
-          name: '',
-          email: '',
-          phone: '',
-          attending: '',
-          guests: '',
-          allergies: [],
-          additionalAllergies: '',
-        });
+        setMessage(data.message || 'RSVP submitted successfully!');
+        setMessageType('success');
+        if (isAdmin) {
+          fetchRSVPs(); // Refresh admin view
+        }
+      } else {
+        setMessage(data.message || 'Failed to submit RSVP.');
+        setMessageType('error');
       }
     } catch (error) {
       setMessage('Error submitting RSVP. Please try again.');
+      setMessageType('error');
+      console.error('Submission error:', error);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
+  };
+
+  /**
+   * Handle admin login
+   */
+  const handleAdminLogin = async (password) => {
+    setError(null);
+    try {
+      const response = await fetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setIsAdmin(true);
+        setRsvps(data.rsvps);
+        localStorage.setItem('adminLoggedIn', 'true');
+        setShowAdminForm(false);
+        setAdminPassword('');
+        setMessage('Admin login successful!');
+        setMessageType('success');
+      } else {
+        setError('Invalid password. Please try again.');
+      }
+    } catch (error) {
+      setError('Error logging in. Please try again.');
+      console.error('Login error:', error);
+    }
+  };
+
+  /**
+   * Handle admin logout
+   */
+  const handleLogout = () => {
+    setIsAdmin(false);
+    setRsvps([]);
+    localStorage.removeItem('adminLoggedIn');
+  };
+
+  /**
+   * Handle RSVP deletion
+   */
+  const handleDeleteRSVP = async (id) => {
+    if (confirm('Are you sure you want to delete this RSVP?')) {
+      try {
+        setError(null);
+        const response = await fetch(`/api/admin?id=${id}`, {
+          method: 'DELETE',
+        });
+
+        if (response.ok) {
+          fetchRSVPs(); // Refresh the list
+          setMessage('RSVP deleted successfully.');
+          setMessageType('success');
+        } else {
+          setError('Error deleting RSVP. Please try again.');
+        }
+      } catch (error) {
+        setError('Error deleting RSVP. Please try again.');
+        console.error('Delete error:', error);
+      }
+    }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 flex items-center justify-center p-4 relative overflow-hidden">
-      {/* Elegant decorations */}
-      <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-10 left-10 text-4xl opacity-20">🎩</div>
-        <div className="absolute top-20 right-20 text-5xl opacity-30">🥂</div>
-        <div className="absolute bottom-20 left-20 text-3xl opacity-25">⭐</div>
-        <div className="absolute bottom-10 right-10 text-4xl opacity-20">🎁</div>
-        <div className="absolute top-1/2 left-5 text-2xl opacity-15">◆</div>
-        <div className="absolute top-1/3 right-5 text-3xl opacity-25">◇</div>
-      </div>
+    <>
+      <Head>
+        <title>Event RSVP - Happy Birthday Pastor!</title>
+        <meta name="description" content="Professional RSVP system for Pastor's birthday celebration" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <link rel="icon" href="/favicon.ico" />
+      </Head>
 
-      <div className="max-w-lg w-full bg-white rounded-2xl shadow-2xl p-8 relative z-10 border border-gray-200">
-        <div className="text-center mb-8">
-          <div className="text-6xl mb-4">🎂</div>
-          <h1 className="text-4xl font-bold text-gray-800 mb-2">Happy Birthday Pastor!</h1>
-          <p className="text-gray-600 text-lg">We'd love for you to join us for the celebration! Please RSVP below.</p>
-        </div>
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
-            <input
-              type="text"
-              name="name"
-              value={formData.name}
-              onChange={handleInputChange}
-              className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-blue-500 bg-white shadow-sm"
-              required
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
-            <input
-              type="email"
-              name="email"
-              value={formData.email}
-              onChange={handleInputChange}
-              className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-blue-500 bg-white shadow-sm"
-              required
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Phone Number</label>
-            <input
-              type="tel"
-              name="phone"
-              value={formData.phone}
-              onChange={handleInputChange}
-              className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-blue-500 bg-white shadow-sm"
-              required
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Will you attend?</label>
-            <select
-              name="attending"
-              value={formData.attending}
-              onChange={handleInputChange}
-              className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-blue-500 bg-white shadow-sm"
-              required
-            >
-              <option value="">Please select</option>
-              <option value="yes">Yes, I'll be there!</option>
-              <option value="no">Sorry, I can't make it</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Number of Guests (including yourself)</label>
-            <input
-              type="number"
-              name="guests"
-              value={formData.guests}
-              onChange={handleInputChange}
-              min="1"
-              className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-blue-500 bg-white shadow-sm"
-              required
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Allergies or Dietary Restrictions</label>
-            <p className="text-sm text-gray-500 mb-2">Please check any that apply:</p>
-            <div className="grid grid-cols-2 gap-3 mb-4">
-              {commonAllergies.map(allergy => (
-                <label key={allergy} className="flex items-center bg-gray-50 p-2 rounded-lg hover:bg-gray-100 transition-colors border">
-                  <input
-                    type="checkbox"
-                    checked={formData.allergies.includes(allergy)}
-                    onChange={() => handleAllergyChange(allergy)}
-                    className="mr-3 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                  />
-                  {allergy}
-                </label>
-              ))}
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100">
+        {/* Hero Section with Header */}
+        <Hero isAdmin={isAdmin} />
+
+        {/* Main Content */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+          {/* Display Error Messages */}
+          {error && (
+            <div className="mb-8">
+              <div className="p-4 rounded-lg border border-red-200 bg-red-50">
+                <div className="flex items-start">
+                  <svg className="h-5 w-5 text-red-400 mt-0.5 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                  </svg>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-red-800">{error}</p>
+                  </div>
+                  <button
+                    onClick={() => setError(null)}
+                    className="ml-3 text-red-400 hover:text-red-600 transition-colors"
+                  >
+                    <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
             </div>
-            <textarea
-              name="additionalAllergies"
-              value={formData.additionalAllergies}
-              onChange={handleInputChange}
-              className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-blue-500 bg-white shadow-sm"
-              rows="3"
-              placeholder="Any other allergies or special dietary needs..."
+          )}
+          {!isAdmin ? (
+            <div className="space-y-12">
+              {/* RSVP Form */}
+              <RSVPForm
+                onSubmit={handleRSVPSubmit}
+                message={message}
+                messageType={messageType}
+                loading={loading}
+              />
+
+              {/* Admin Login */}
+              <AdminLogin
+                onLogin={handleAdminLogin}
+                showForm={showAdminForm}
+                onToggleForm={() => setShowAdminForm(!showAdminForm)}
+              />
+            </div>
+          ) : (
+            /* Admin Dashboard */
+            <AdminPanel
+              rsvps={rsvps}
+              onDelete={handleDeleteRSVP}
+              onLogout={handleLogout}
             />
+          )}
+        </div>
+
+        {/* Footer */}
+        <footer className="bg-white border-t border-gray-200 mt-16">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div className="text-center">
+              <p className="text-gray-500 text-sm">
+                © 2024 Event RSVP System. Built with ❤️ for memorable celebrations.
+              </p>
+              <div className="mt-2 flex justify-center space-x-4 text-xs text-gray-400">
+                <span>Professional Event Management</span>
+                <span>•</span>
+                <span>Secure & Reliable</span>
+                <span>•</span>
+                <span>Real-time Updates</span>
+              </div>
+              <p className="mt-4 text-xs text-gray-400">
+                Designed by <span className="font-semibold text-gray-500">Tek Tribe</span>
+              </p>
+            </div>
           </div>
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-gradient-to-r from-blue-600 to-slate-600 text-white py-4 px-6 rounded-xl hover:from-blue-700 hover:to-slate-700 focus:outline-none focus:ring-4 focus:ring-blue-500 transition-all duration-200 text-lg font-semibold shadow-lg disabled:opacity-50 transform hover:scale-105"
-          >
-            {loading ? 'Sending RSVP...' : 'Submit RSVP'}
-          </button>
-        </form>
-        {message && (
-          <div className={`mt-6 p-4 border-2 rounded-xl text-center font-medium ${message.includes('Error') ? 'bg-red-50 border-red-200 text-red-800' : 'bg-green-50 border-green-200 text-green-800'}`}>
-            {message}
-          </div>
-        )}
-        <footer className="mt-8 text-center text-sm text-gray-600">
-          <p>Thank you for your response! We look forward to celebrating together.</p>
         </footer>
       </div>
-    </div>
+    </>
   );
 }
