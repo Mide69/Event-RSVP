@@ -1,28 +1,15 @@
-import fs from 'fs';
-import path from 'path';
-
-const dataFile = path.join(process.cwd(), 'data', 'rsvps.json');
+import connectToDatabase from '../../lib/mongodb';
+import RSVP from '../../models/RSVP';
 
 export default async function handler(req, res) {
   if (req.method === 'POST') {
     const { name, email, phone, attending, guests, allergies, additionalAllergies } = req.body;
 
     try {
-      // Ensure data directory exists
-      const dataDir = path.join(process.cwd(), 'data');
-      if (!fs.existsSync(dataDir)) {
-        fs.mkdirSync(dataDir);
-      }
+      await connectToDatabase();
 
-      // Read existing RSVPs
-      let rsvps = [];
-      if (fs.existsSync(dataFile)) {
-        const data = fs.readFileSync(dataFile, 'utf8');
-        rsvps = JSON.parse(data);
-      }
-
-      // Add new RSVP
-      const newRSVP = {
+      // Create new RSVP
+      const newRSVP = new RSVP({
         id: Date.now().toString(),
         name,
         email,
@@ -31,17 +18,17 @@ export default async function handler(req, res) {
         guests: parseInt(guests),
         allergies,
         additionalAllergies,
-        createdAt: new Date().toISOString(),
-      };
-      rsvps.push(newRSVP);
+      });
 
-      // Write back to file
-      fs.writeFileSync(dataFile, JSON.stringify(rsvps, null, 2));
+      await newRSVP.save();
 
       res.status(200).json({ message: 'RSVP saved successfully!' });
     } catch (error) {
-      console.error(error);
-      res.status(500).json({ message: 'Error saving RSVP. Please try again.' });
+      console.error('RSVP save error:', error.message || error);
+      res.status(500).json({
+        message: 'Error saving RSVP. Please try again.',
+        detail: error.message || 'Unknown error',
+      });
     }
   } else {
     res.status(405).json({ message: 'Method not allowed' });
